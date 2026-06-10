@@ -11,9 +11,9 @@ import javax.swing.KeyStroke;
 import javax.swing.event.MenuEvent;
 import javax.swing.event.MenuListener;
 
-import model.BasicObject;
 import model.CompositeObject;
-import model.LinkObject;
+import model.Groupable;
+import model.AppearanceEditable;
 import model.UMLObject;
 
 public class EditMenu extends JMenu {
@@ -46,10 +46,10 @@ public class EditMenu extends JMenu {
 
     private void updateState(Canvas canvas) {
         List<UMLObject> sel = canvas.getSelectedObjects();
-        long nonLinkCount = sel.stream().filter(o -> !(o instanceof LinkObject)).count();
-        groupItem.setEnabled(nonLinkCount >= 2);
+        long groupableCount = sel.stream().filter(o -> o instanceof Groupable).count();
+        groupItem.setEnabled(groupableCount >= 2);
         ungroupItem.setEnabled(sel.size() == 1 && sel.get(0) instanceof CompositeObject);
-        labelItem.setEnabled(sel.size() == 1 && sel.get(0) instanceof BasicObject);
+        labelItem.setEnabled(sel.size() == 1 && sel.get(0) instanceof AppearanceEditable);
     }
 
     private JMenuItem createMenuItem(String text, int key, int mask, ActionListener listener) {

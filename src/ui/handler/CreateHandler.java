@@ -4,10 +4,7 @@ import java.awt.Color;
 import java.awt.BasicStroke;
 import java.awt.Graphics2D;
 
-import mode.Mode;
 import model.BasicObject;
-import model.OvalObject;
-import model.RectObject;
 import ui.CanvasModel;
 
 /**
@@ -19,20 +16,22 @@ import ui.CanvasModel;
  * 3. onReleased：計算邊界框，建立新物件，呼叫 onCreated 回呼（Canvas 用來切回前一模式）
  */
 public class CreateHandler implements MouseHandler {
+    public interface ShapeFactory {
+        BasicObject create(int x, int y, int w, int h);
+        void drawPreview(Graphics2D g, int x, int y, int w, int h);
+    }
+
     private final CanvasModel model;
     private final Runnable onCreated;
-    private Mode shapeMode = Mode.RECT;
+    private final ShapeFactory factory;
 
     private boolean drawing = false;
     private int pressX, pressY, currentX, currentY;
 
-    public CreateHandler(CanvasModel model, Runnable onCreated) {
+    public CreateHandler(CanvasModel model, Runnable onCreated, ShapeFactory factory) {
         this.model = model;
         this.onCreated = onCreated;
-    }
-
-    public void setShapeMode(Mode mode) {
-        this.shapeMode = mode;
+        this.factory = factory;
     }
 
     @Override
@@ -61,9 +60,7 @@ public class CreateHandler implements MouseHandler {
         int bw = Math.max(Math.abs(x - pressX), BasicObject.MIN_SIZE);
         int bh = Math.max(Math.abs(y - pressY), BasicObject.MIN_SIZE);
 
-        BasicObject obj = (shapeMode == Mode.RECT)
-                ? new RectObject(bx, by, bw, bh)
-                : new OvalObject(bx, by, bw, bh);
+        BasicObject obj = factory.create(bx, by, bw, bh);
         model.add(obj);
         onCreated.run(); // 通知 Canvas 建立完成，切回前一模式
     }
@@ -81,11 +78,7 @@ public class CreateHandler implements MouseHandler {
         g.setColor(new Color(80, 80, 80, 160));
         g.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER,
                 10, new float[] { 6f, 4f }, 0));
-        if (shapeMode == Mode.RECT) {
-            g.drawRect(x, y, w, h);
-        } else {
-            g.drawOval(x, y, w, h);
-        }
+        factory.drawPreview(g, x, y, w, h);
         g.setStroke(new BasicStroke(1));
 
     }

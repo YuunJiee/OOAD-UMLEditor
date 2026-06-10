@@ -17,14 +17,13 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 
-import model.BasicObject;
+import model.AppearanceEditable;
 
 public class LabelDialog extends JDialog {
     private final JTextField nameField;
     private Color selectedColor;
-    private boolean confirmed = false;
 
-    public LabelDialog(Window owner, BasicObject target) {
+    public LabelDialog(Window owner, AppearanceEditable target) {
         super(owner, "Customize Label Style", ModalityType.APPLICATION_MODAL);
         selectedColor = target.getFillColor();
 
@@ -59,7 +58,6 @@ public class LabelDialog extends JDialog {
         okBtn.addActionListener(e -> {
             target.setLabel(nameField.getText());
             target.setFillColor(selectedColor);
-            confirmed = true;
             dispose();
         });
 
@@ -82,7 +80,5 @@ public class LabelDialog extends JDialog {
         setLocationRelativeTo(owner);
     }
 
-    public boolean isConfirmed() {
-        return confirmed;
-    }
+
 }

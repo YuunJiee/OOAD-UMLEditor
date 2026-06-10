@@ -6,11 +6,9 @@ import java.awt.Graphics2D;
 
 public class Label {
     private String name;
-    private Color color;
 
-    public Label(String name, Color color) {
+    public Label(String name) {
         this.name = name;
-        this.color = color;
     }
 
     public void draw(Graphics2D g, int x, int y, int width, int height) {
@@ -26,6 +24,4 @@ public class Label {
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
-    public Color getColor() { return color; }
-    public void setColor(Color color) { this.color = color; }
 }

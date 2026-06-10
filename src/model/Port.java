@@ -9,13 +9,27 @@ public class Port {
     public static final int HALF = SIZE / 2;
     public static final int HIT_RADIUS = HALF + 5;
 
-    private final int x, y;
+    public static final int START  = 0;
+    public static final int CENTER = 1;
+    public static final int END    = 2;
+
+    private int x, y;
     private final int[] direction;
 
     public Port(int x, int y, int[] direction) {
         this.x = x;
         this.y = y;
         this.direction = direction;
+    }
+
+    public void setPosition(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    public void shift(int dx, int dy) {
+        this.x += dx;
+        this.y += dy;
     }
 
     public boolean contains(int mx, int my) {
@@ -33,5 +47,5 @@ public class Port {
 
     public int getX() { return x; }
     public int getY() { return y; }
-    public int[] getDirection() { return direction; }
+    public int[] getDirection() { return direction.clone(); }
 }

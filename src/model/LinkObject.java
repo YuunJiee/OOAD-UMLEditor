@@ -7,40 +7,29 @@ import java.awt.Point;
 import java.awt.Stroke;
 import java.awt.Rectangle;
 
-public abstract class LinkObject extends UMLObject {
-    protected final BasicObject fromObject;
-    protected final int fromPort;
-    protected final BasicObject toObject;
-    protected final int toPort;
+public class LinkObject extends UMLObject {
+    protected final PortOwner fromObject;
+    protected final Port fromPort;
+    protected final PortOwner toObject;
+    protected final Port toPort;
     private final ArrowStyle arrowStyle;
 
-    public LinkObject(BasicObject from, int fromPort, BasicObject to, int toPort,
+    public LinkObject(PortOwner from, Port fromPort, PortOwner to, Port toPort,
             ArrowStyle arrowStyle) {
         this.fromObject = from;
         this.fromPort = fromPort;
         this.toObject = to;
         this.toPort = toPort;
         this.arrowStyle = arrowStyle;
-    }
-
-    private Point getPoint(BasicObject obj, int portIndex) {
-        if (obj == null)
-            return new Point(0, 0);
-
-        Port[] ports = obj.getPorts();
-        if (portIndex >= 0 && portIndex < ports.length) {
-            return ports[portIndex].getPosition();
-        }
-
-        return new Point(obj.getX(), obj.getY());
+        this.zIndex = 0;
     }
 
     protected Point getFromPoint() {
-        return getPoint(fromObject, fromPort);
+        return fromPort != null ? fromPort.getPosition() : new Point(fromObject.getX(), fromObject.getY());
     }
 
     protected Point getToPoint() {
-        return getPoint(toObject, toPort);
+        return toPort != null ? toPort.getPosition() : new Point(toObject.getX(), toObject.getY());
     }
 
     @Override
@@ -52,21 +41,11 @@ public abstract class LinkObject extends UMLObject {
         return new Rectangle(Math.min(p1.x, p2.x), Math.min(p1.y, p2.y), w, h);
     }
 
-    @Override
-    public boolean contains(int px, int py) {
-        return false;
-    }
-
-    @Override
-    public void move(int dx, int dy) {
-        // links follow their connected BasicObjects; no position to update
-    }
-
-    public BasicObject getFromObject() {
+    public PortOwner getFromObject() {
         return fromObject;
     }
 
-    public BasicObject getToObject() {
+    public PortOwner getToObject() {
         return toObject;
     }
 
@@ -89,5 +68,10 @@ public abstract class LinkObject extends UMLObject {
 
     protected void drawLinkShape(Graphics2D g, Point p1, Point p2) {
         arrowStyle.draw(g, p1, p2);
+    }
+
+    @Override
+    public boolean shouldBeDeleted(java.util.Set<PortOwner> deletingOwners) {
+        return isSelected() || deletingOwners.contains(fromObject) || deletingOwners.contains(toObject);
     }
 }

@@ -4,35 +4,27 @@ import java.awt.Graphics2D;
 
 public class OvalObject extends BasicObject {
 
-    public OvalObject(int x, int y, int width, int height) {
-        super(x, y, width, height);
-    }
+    private static final double HIT_TOLERANCE = 1.05;
 
     private static final int[][] PORT_DIRS = {
-            { 1, 0 }, // 上
-            { 2, 1 }, // 右
-            { 1, 2 }, // 下
-            { 0, 1 } // 左
+            { Port.CENTER, Port.START  }, // 上
+            { Port.END,    Port.CENTER }, // 右
+            { Port.CENTER, Port.END    }, // 下
+            { Port.START,  Port.CENTER }, // 左
     };
 
-    @Override
-    public Port[] getPorts() {
-        Port[] ports = new Port[PORT_DIRS.length];
 
-        for (int i = 0; i < PORT_DIRS.length; i++) {
-            int dx = PORT_DIRS[i][0];
-            int dy = PORT_DIRS[i][1];
-
-            int px = x + (dx == 0 ? 0 : dx == 1 ? width / 2 : width);
-            int py = y + (dy == 0 ? 0 : dy == 1 ? height / 2 : height);
-
-            ports[i] = new Port(px, py, PORT_DIRS[i]);
-        }
-
-        return ports;
+    public OvalObject(int x, int y, int width, int height) {
+        super(x, y, width, height);
+        initPorts(PORT_DIRS);
+        updatePortPositions();
     }
 
-    private static final double HIT_TOLERANCE = 1.05;
+    @Override
+    protected void updatePortPositions() {
+        applyPortPositions(PORT_DIRS);
+    }
+
 
     @Override
     public boolean contains(int px, int py) {

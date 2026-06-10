@@ -5,15 +5,22 @@ import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.KeyEvent;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
-
 import javax.swing.*;
 
 import mode.Mode;
 import model.BasicObject;
+import model.AppearanceEditable;
 import model.UMLObject;
+import model.RectObject;
+import model.OvalObject;
+import model.LinkObject;
+import model.OpenArrowStyle;
+import model.HollowTriangleStyle;
+import model.DiamondStyle;
 
 import ui.handler.*;
 
@@ -26,8 +33,7 @@ public class Canvas extends JPanel {
     private Consumer<Mode> onModeChange;
 
     private final SelectHandler selectHandler;
-    private final LinkHandler linkHandler;
-    private final CreateHandler createHandler;
+    private final Map<Mode, MouseHandler> handlers = new EnumMap<>(Mode.class);
 
     public Canvas() {
         setBackground(Color.WHITE);
@@ -35,8 +41,23 @@ public class Canvas extends JPanel {
         setFocusable(true);
 
         selectHandler = new SelectHandler(model, this::repaint, this::setCursor);
-        linkHandler = new LinkHandler(model);
-        createHandler = new CreateHandler(model, () -> notifyModeChange(previousMode));
+
+        handlers.put(Mode.SELECT, selectHandler);
+        handlers.put(Mode.ASSOCIATION, new LinkHandler(model, (f, fp, t, tp) -> new LinkObject(f, fp, t, tp, new OpenArrowStyle())));
+        handlers.put(Mode.GENERALIZATION, new LinkHandler(model, (f, fp, t, tp) -> new LinkObject(f, fp, t, tp, new HollowTriangleStyle())));
+        handlers.put(Mode.COMPOSITION, new LinkHandler(model, (f, fp, t, tp) -> new LinkObject(f, fp, t, tp, new DiamondStyle())));
+        
+        CreateHandler.ShapeFactory rectFactory = new CreateHandler.ShapeFactory() {
+            public BasicObject create(int x, int y, int w, int h) { return new RectObject(x, y, w, h); }
+            public void drawPreview(Graphics2D g, int x, int y, int w, int h) { g.drawRect(x, y, w, h); }
+        };
+        CreateHandler.ShapeFactory ovalFactory = new CreateHandler.ShapeFactory() {
+            public BasicObject create(int x, int y, int w, int h) { return new OvalObject(x, y, w, h); }
+            public void drawPreview(Graphics2D g, int x, int y, int w, int h) { g.drawOval(x, y, w, h); }
+        };
+
+        handlers.put(Mode.RECT, new CreateHandler(model, () -> notifyModeChange(previousMode), rectFactory));
+        handlers.put(Mode.OVAL, new CreateHandler(model, () -> notifyModeChange(previousMode), ovalFactory));
 
         MouseAdapter ma = new MouseAdapter() {
             @Override
@@ -50,8 +71,10 @@ public class Canvas extends JPanel {
 
             @Override
             public void mouseDragged(MouseEvent e) {
-                activeHandler().onDragged(e.getX(), e.getY());
-                repaint();
+                if (SwingUtilities.isLeftMouseButton(e)) {
+                    activeHandler().onDragged(e.getX(), e.getY());
+                    repaint();
+                }
             }
 
             @Override
@@ -87,11 +110,7 @@ public class Canvas extends JPanel {
             previousMode = currentMode;
         }
         currentMode = mode;
-        if (mode.isLinkMode()) {
-            linkHandler.setLinkMode(mode);
-        } else if (mode == Mode.RECT || mode == Mode.OVAL) {
-            createHandler.setShapeMode(mode);
-        }
+        handlers.get(mode).onActivate(mode);
         selectHandler.clearHover();
         setCursor(Cursor.getPredefinedCursor(mode == Mode.SELECT ? Cursor.DEFAULT_CURSOR : Cursor.CROSSHAIR_CURSOR));
         repaint();
@@ -121,14 +140,10 @@ public class Canvas extends JPanel {
     }
 
     public void editLabel() {
-        List<BasicObject> basics = model.getSelectedObjects().stream()
-                .filter(o -> o instanceof BasicObject)
-                .map(o -> (BasicObject) o)
-                .collect(Collectors.toList());
-
-        if (basics.size() != 1)
+        List<UMLObject> sel = model.getSelectedObjects();
+        if (sel.size() != 1 || !(sel.get(0) instanceof AppearanceEditable le))
             return;
-        new LabelDialog(SwingUtilities.getWindowAncestor(this), basics.get(0)).setVisible(true);
+        new LabelDialog(SwingUtilities.getWindowAncestor(this), le).setVisible(true);
         repaint();
     }
 
@@ -138,28 +153,18 @@ public class Canvas extends JPanel {
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        boolean isLinkMode = currentMode.isLinkMode();
         UMLObject hovered = selectHandler.getHoveredObject();
 
-        for (UMLObject obj : model.getLinks()) {
-            obj.draw(g2, false);
-        }
-
-        for (UMLObject obj : model.getNonLinks()) {
-            boolean showPorts = (obj == hovered) || (isLinkMode && obj instanceof BasicObject);
-            obj.draw(g2, showPorts);
-        }
+        model.getAll().stream()
+                .sorted(java.util.Comparator.comparingInt(UMLObject::getZIndex))
+                .forEach(obj -> obj.draw(g2, currentMode.shouldShowPortsFor(obj, hovered)));
 
         activeHandler().drawPreview(g2);
         g2.dispose();
     }
 
     private MouseHandler activeHandler() {
-        return switch (currentMode) {
-            case SELECT -> selectHandler;
-            case ASSOCIATION, GENERALIZATION, COMPOSITION -> linkHandler;
-            case RECT, OVAL -> createHandler;
-        };
+        return handlers.get(currentMode);
     }
 
     private void notifyModeChange(Mode mode) {

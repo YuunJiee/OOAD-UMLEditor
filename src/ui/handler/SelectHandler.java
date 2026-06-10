@@ -35,7 +35,7 @@ public class SelectHandler implements MouseHandler {
     private int pressX, pressY, currentX, currentY;
     private int lastDragX, lastDragY;
 
-    private BasicObject resizingObject;
+    private PortOwner resizingObject;
     private Port resizingPort;
     private int resizeOrigX, resizeOrigY, resizeOrigW, resizeOrigH;
 
@@ -64,16 +64,16 @@ public class SelectHandler implements MouseHandler {
 
         for (int i = model.getAll().size() - 1; i >= 0; i--) {
             UMLObject obj = model.getAll().get(i);
-            if (obj instanceof BasicObject bo && (bo.isSelected() || bo == hoveredObject)) {
-                int portIdx = bo.getPortIndexAt(x, y);
-                if (portIdx >= 0) {
-                    startResize(bo, portIdx);
+            if (obj instanceof PortOwner po && (po.isSelected() || po == hoveredObject)) {
+                Port port = po.getPortAt(x, y);
+                if (port != null) {
+                    startResize(po, port);
                     return;
                 }
             }
         }
 
-        UMLObject topObj = model.getTopmostNonLinkAt(x, y);
+        UMLObject topObj = model.getTopmostSelectableAt(x, y);
         if (topObj != null) {
             if (!topObj.isSelected()) {
                 model.deselectAll();
@@ -95,9 +95,7 @@ public class SelectHandler implements MouseHandler {
             case MOVING -> {
                 int dx = x - lastDragX;
                 int dy = y - lastDragY;
-                model.getAll().stream()
-                        .filter(UMLObject::isSelected)
-                        .forEach(obj -> obj.move(dx, dy));
+                model.getSelectedObjects().forEach(obj -> obj.move(dx, dy));
                 lastDragX = x;
                 lastDragY = y;
             }
@@ -128,16 +126,16 @@ public class SelectHandler implements MouseHandler {
         var all = model.getAll();
         for (int i = all.size() - 1; i >= 0; i--) {
             UMLObject obj = all.get(i);
-            if (obj instanceof LinkObject)
+            if (!(obj instanceof Groupable))
                 continue;
 
             if (hoveredObject == null && obj.contains(x, y)) {
                 hoveredObject = obj;
             }
 
-            if (!onPort && obj instanceof BasicObject bo &&
-                    (bo.isSelected() || obj == hoveredObject)) {
-                if (bo.getPortIndexAt(x, y) >= 0)
+            if (!onPort && obj instanceof PortOwner po &&
+                    (po.isSelected() || obj == hoveredObject)) {
+                if (po.getPortAt(x, y) != null)
                     onPort = true;
             }
         }
@@ -177,10 +175,10 @@ public class SelectHandler implements MouseHandler {
 
     }
 
-    private void startResize(BasicObject obj, int portIdx) {
+    private void startResize(PortOwner obj, Port port) {
         state = State.RESIZING;
         resizingObject = obj;
-        resizingPort = obj.getPorts()[portIdx];
+        resizingPort = port;
         resizeOrigX = obj.getX();
         resizeOrigY = obj.getY();
         resizeOrigW = obj.getWidth();
@@ -203,7 +201,7 @@ public class SelectHandler implements MouseHandler {
                 Math.abs(mx - pressX), Math.abs(my - pressY));
 
         for (UMLObject obj : model.getAll()) {
-            if (obj instanceof LinkObject)
+            if (!(obj instanceof Groupable))
                 continue;
             obj.setSelected(selRect.contains(obj.getBounds()));
         }

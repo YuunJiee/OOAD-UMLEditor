@@ -4,11 +4,14 @@ import java.awt.BasicStroke;
 import java.awt.Graphics2D;
 import java.awt.Stroke;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.awt.Rectangle;
 import java.awt.Color;
 
-public class CompositeObject extends UMLObject {
+public class CompositeObject extends UMLObject implements Groupable {
+    private static final int GROUP_PADDING = 4;
+
     private final List<UMLObject> children;
 
     public CompositeObject(List<UMLObject> children) {
@@ -16,7 +19,7 @@ public class CompositeObject extends UMLObject {
     }
 
     public List<UMLObject> getChildren() {
-        return children;
+        return Collections.unmodifiableList(children);
     }
 
     @Override
@@ -53,13 +56,14 @@ public class CompositeObject extends UMLObject {
             Stroke oldStroke = g.getStroke();
             Color oldColor = g.getColor();
 
-            // 設置虛線
+            // dashed border
             g.setStroke(new BasicStroke(2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER,
                     10, new float[] { 7f, 4f }, 0));
             g.setColor(new Color(30, 100, 220));
 
-            // 畫出帶有 padding 的矩形
-            g.drawRect(bound.x - 4, bound.y - 4, bound.width + 8, bound.height + 8);
+            // draw bounding rect with padding
+            g.drawRect(bound.x - GROUP_PADDING, bound.y - GROUP_PADDING,
+                    bound.width + GROUP_PADDING * 2, bound.height + GROUP_PADDING * 2);
 
             g.setStroke(oldStroke);
             g.setColor(oldColor);
@@ -71,16 +75,11 @@ public class CompositeObject extends UMLObject {
         children.forEach(c -> c.move(dx, dy));
     }
 
-    public List<BasicObject> collectAllBasicObjects() {
-        List<BasicObject> result = new ArrayList<>();
+    @Override
+    public void collectDeletingPortOwners(java.util.Set<PortOwner> set) {
         for (UMLObject child : children) {
-            if (child instanceof BasicObject bo) {
-                result.add(bo);
-            } else if (child instanceof CompositeObject co) {
-                result.addAll(co.collectAllBasicObjects());
-            }
+            child.collectDeletingPortOwners(set);
         }
-        return result;
     }
 
 }

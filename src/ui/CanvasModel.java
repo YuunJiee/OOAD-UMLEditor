@@ -6,10 +6,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import model.BasicObject;
 import model.CompositeObject;
-import model.LinkObject;
+import model.Groupable;
 import model.UMLObject;
+import model.PortOwner;
 
 public class CanvasModel {
     private final List<UMLObject> objects = new ArrayList<>();
@@ -38,45 +38,24 @@ public class CanvasModel {
         return Collections.unmodifiableList(objects);
     }
 
-    public List<UMLObject> getLinks() {
-        return objects.stream()
-                .filter(o -> o instanceof LinkObject)
-                .collect(Collectors.toList());
-    }
-
-    public List<UMLObject> getNonLinks() {
-        return objects.stream()
-                .filter(o -> !(o instanceof LinkObject))
-                .collect(Collectors.toList());
-    }
-
     public void deleteSelected() {
         List<UMLObject> selected = getSelectedObjects();
         if (selected.isEmpty())
             return;
 
-        Set<BasicObject> deleteBasics = new java.util.HashSet<>();
+        Set<PortOwner> deleteOwners = new java.util.HashSet<>();
         for (UMLObject obj : selected) {
-            if (obj instanceof BasicObject bo) {
-                deleteBasics.add(bo);
-            } else if (obj instanceof CompositeObject co) {
-                deleteBasics.addAll(co.collectAllBasicObjects());
-            }
+            obj.collectDeletingPortOwners(deleteOwners);
         }
 
-        objects.removeIf(o -> {
-            if (o instanceof LinkObject lo) {
-                return lo.isSelected() ||
-                        deleteBasics.contains(lo.getFromObject()) ||
-                        deleteBasics.contains(lo.getToObject());
-            }
-            return o.isSelected();
-        });
+        objects.removeIf(o -> o.shouldBeDeleted(deleteOwners));
     }
 
     public void bringToFront(UMLObject obj) {
-        objects.remove(obj);
-        objects.add(obj);
+        if (objects.remove(obj)) {
+            obj.setZIndex(99);
+            objects.add(obj);   // Keep at end of list for ties
+        }
     }
 
     public void deselectAll() {
@@ -89,30 +68,42 @@ public class CanvasModel {
                 .collect(Collectors.toList());
     }
 
-    public UMLObject getTopmostNonLinkAt(int x, int y) {
-        for (int i = objects.size() - 1; i >= 0; i--) {
+    private <T> T getTopmost(java.util.function.Function<UMLObject, T> mapper) {
+        T best = null;
+        int bestIndex = -1;
+        int bestZ = Integer.MIN_VALUE;
+        for (int i = 0; i < objects.size(); i++) {
             UMLObject obj = objects.get(i);
-            if (obj instanceof LinkObject)
-                continue;
-            if (obj.contains(x, y))
-                return obj;
-        }
-        return null;
-    }
-
-    public BasicObject getBasicObjectByPort(int mx, int my) {
-        for (int i = objects.size() - 1; i >= 0; i--) {
-            if (objects.get(i) instanceof BasicObject bo
-                    && bo.getPortIndexAt(mx, my) >= 0) {
-                return bo;
+            T mapped = mapper.apply(obj);
+            if (mapped == null) continue;
+            
+            int z = obj.getZIndex();
+            if (z > bestZ || (z == bestZ && i > bestIndex)) {
+                best = mapped;
+                bestZ = z;
+                bestIndex = i;
             }
         }
-        return null;
+        return best;
+    }
+
+    public UMLObject getTopmostSelectableAt(int x, int y) {
+        return getTopmost(obj -> {
+            if (!(obj instanceof Groupable) || !obj.contains(x, y)) return null;
+            return obj;
+        });
+    }
+
+    public PortOwner getPortOwnerByPort(int mx, int my) {
+        return getTopmost(obj -> {
+            if (obj instanceof PortOwner po && po.getPortAt(mx, my) != null) return po;
+            return null;
+        });
     }
 
     public boolean groupSelected() {
         List<UMLObject> groundable = objects.stream()
-                .filter(o -> o.isSelected() && !(o instanceof LinkObject))
+                .filter(o -> o.isSelected() && o instanceof Groupable)
                 .collect(Collectors.toList());
         if (groundable.size() < 2)
             return false;
